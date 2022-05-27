@@ -50,7 +50,7 @@
 ## Generate String Session
 
 ### Run on repl.it
-[![Run repl.it](https://img.shields.io/badge/run-string__session.py-blue?style=flat-square&logo=repl.it)](https://session.uraniumcore.repl.run)
+[![Run repl.it](https://img.shields.io/badge/run-string__session.py-blue?style=flat-square&logo=repl.it)](https://replit.com/@frost2k5/session)
 
 ### Run on your terminal
 ```
