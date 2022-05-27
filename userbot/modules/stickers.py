@@ -103,8 +103,8 @@ async def kang(args):
                 # pack
                 emoji = splat[1]
 
-        packname = f"a{user.id}_1by_fiz_{pack}"
-        packnick = f"kanged stickers Vol.{pack}"
+        packname = f"a{user.id}_DarkGod14_{pack}"
+        packnick = f"Stickers Pack Vol.{pack}"
         cmd = "/newpack"
         file = io.BytesIO()
 
@@ -135,8 +135,8 @@ async def kang(args):
                 x = await conv.get_response()
                 while "120" in x.text:
                     pack += 1
-                    packname = f"a{user.id}_1by_fiz_{pack}"
-                    packnick = f"kanged stickers Vol.{pack}"
+                    packname = f"a{user.id}_DarkGod14_{pack}"
+                    packnick = f"Sticker Pack Vol.{pack}"
                     await args.edit(
                         "**Switching to Pack "
                         + str(pack)
@@ -201,7 +201,7 @@ async def kang(args):
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
                 await conv.get_response()
-                await conv.send_message("/done")
+                await conv.send_message("/publish")
                 await conv.get_response()
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
@@ -417,7 +417,7 @@ async def oldkang(args):
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
                 await conv.get_response()
-                await conv.send_message("/done")
+                await conv.send_message("/publish")
                 await conv.get_response()
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
@@ -640,7 +640,7 @@ async def oldkang(args):
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
                 await conv.get_response()
-                await conv.send_message("/done")
+                await conv.send_message("/publish")
                 await conv.get_response()
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
@@ -777,8 +777,8 @@ async def k(args):
                 # pack
                 emoji = splat[1]
 
-        packname = f"a{user.id}_1by_fiz_{pack}"
-        packnick = f"kanged stickers Vol.{pack}"
+        packname = f"a{user.id}_DarkGod14_{pack}"
+        packnick = f"Sticker Pack Vol.{pack}"
         cmd = "/newpack"
         file = io.BytesIO()
 
@@ -809,8 +809,8 @@ async def k(args):
                 x = await conv.get_response()
                 while "120" in x.text:
                     pack += 1
-                    packname = f"a{user.id}_1by_fiz_{pack}"
-                    packnick = f"kanged stickers Vol.{pack}"
+                    packname = f"a{user.id}_DarkGod14_{pack}"
+                    packnick = f"Sticker Pack Vol.{pack}"
                     await args.edit(
                         "**Switching to Pack "
                         + str(pack)
@@ -881,7 +881,7 @@ async def k(args):
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
                 await conv.get_response()
-                await conv.send_message("/done")
+                await conv.send_message("/publish")
                 await conv.get_response()
                 # Ensure user doesn't get spamming notifications
                 await bot.send_read_acknowledge(conv.chat_id)
