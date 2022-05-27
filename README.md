@@ -62,7 +62,7 @@ curl -L https://git.io/Jyiwj > session_gen.sh && bash session_gen.sh
 ### Deploy on Heroku
 Make sure you have an account of heroku and follow all the steps required.
 
-<p align="left"><a href="https://heroku.com/deploy?template=https://github.com/AbOuLfOoOoOuF/ProjectFizilionFork/tree/pruh"> <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy to Heroku" /></a></p>
+<p align="left"><a href="https://heroku.com/deploy?template=https://github.com/DarkGod14/Fizilion/tree/main"> <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy to Heroku" /></a></p>
 
 ## Groups and Support
 

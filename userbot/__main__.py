@@ -49,7 +49,7 @@ LOGS.info(f"You are running Project Fizilion on {repo_lenk}")
 DEFAULTUSER = str(ALIVE_NAME) if ALIVE_NAME else uname().node
 output = (
     "` =============================== `\n"
-    f"`Fizilion is Up and Running.... `\n"
+    f"`DarkGod14 UserBot is Up and Running.... `\n"
     f"`=============================== `\n"
     f"•`Telethon       : v{version.__version__} `\n"
     f"•`Python         : v{python_version()} `\n"
