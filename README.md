@@ -35,7 +35,7 @@ curl -L https://git.io/Jyiwj > session_gen.sh && bash session_gen.sh
 
 ## How To Host
 
-[Check out the local deploy guide](https://github.com/itsLuuke/ProjectFizilionFork/blob/pruh/setup.md)
+[Check out the local deploy guide](https://github.com/GT-DarkGod14/Fizilion/blob/main/setup.md)
 
 
 ## Credits

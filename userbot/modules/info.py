@@ -1,160 +1,225 @@
-# Copyright (C) 2019 The Raphielscape Company LLC.
-#
-# Licensed under the Raphielscape Public License, Version 1.d (the "License");
-# you may not use this file except in compliance with the License.
-#
-# The entire source code is OSSRPL except 'info' which is MPL
-# License: MPL and OSSRPL
-""" Userbot module for getiing info about any user on Telegram(including you!). """
-
 import os
+import html
+import asyncio
+from pathlib import Path
+from typing import Optional, Tuple, Union, Any
+from dataclasses import dataclass
 
-from telethon.tl.functions.photos import GetUserPhotosRequest
+from telethon import events, types
+from telethon.errors import (
+    UserIdInvalidError, UsernameNotOccupiedError, ChatAdminRequiredError,
+    UserNotParticipantError, ChannelInvalidError, ChannelPrivateError, 
+    PeerIdInvalidError, FloodWaitError
+)
+from telethon.tl.types import (
+    MessageEntityMentionName, User, Channel, Chat,
+    ChannelParticipantsAdmins
+)
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.types import MessageEntityMentionName
-from telethon.utils import get_input_location
 
 from userbot import CMD_HELP, TEMP_DOWNLOAD_DIRECTORY, trgg
 from userbot.events import register
 
 
-@register(pattern="^\{trg}info(?: |$)(.*)".format(trg=trgg), outgoing=True)
-async def who(event):
-
-    await event.edit(
-        "`Sit tight while I steal some data from *Global Network Zone*...`"
-    )
-
-    if not os.path.isdir(TEMP_DOWNLOAD_DIRECTORY):
-        os.makedirs(TEMP_DOWNLOAD_DIRECTORY)
-
-    replied_user = await get_user(event)
-
-    try:
-        photo, caption = await fetch_info(replied_user, event)
-    except AttributeError:
-        event.edit("`Could not fetch info of that user.`")
-        return
-
-    message_id_to_reply = event.message.reply_to_msg_id
-
-    if not message_id_to_reply:
-        message_id_to_reply = None
-
-    try:
-        await event.client.send_file(
-            event.chat_id,
-            photo,
-            caption=caption,
-            link_preview=False,
-            force_document=False,
-            reply_to=message_id_to_reply,
-            parse_mode="html",
-        )
-
-        if not photo.startswith("http"):
-            os.remove(photo)
-        await event.delete()
-
-    except TypeError:
-        await event.edit(caption, parse_mode="html")
+@dataclass
+class UserInfo:
+    entity: User
+    full_info: Any
+    photo_path: Optional[str] = None
 
 
-async def get_user(event):
-    """ Get the user from argument or replied message. """
-    if event.reply_to_msg_id and not event.pattern_match.group(1):
-        previous_message = await event.get_reply_message()
-        replied_user = await event.client(GetFullUserRequest(previous_message.from_id))
-    else:
-        user = event.pattern_match.group(1)
-
-        if user.isnumeric():
-            user = int(user)
-
-        if not user:
-            self_user = await event.client.get_me()
-            user = self_user.id
-
-        if event.message.entities is not None:
-            probable_user_mention_entity = event.message.entities[0]
-
-            if isinstance(probable_user_mention_entity, MessageEntityMentionName):
-                user_id = probable_user_mention_entity.user_id
-                replied_user = await event.client(GetFullUserRequest(user_id))
-                return replied_user
+class InfoHandler:
+    def __init__(self):
+        self.temp_dir = self._get_safe_temp_dir()
+    
+    def _get_safe_temp_dir(self) -> Path:
         try:
-            user_object = await event.client.get_entity(user)
-            replied_user = await event.client(GetFullUserRequest(user_object.id))
-        except (TypeError, ValueError) as err:
-            await event.edit(str(err))
+            path = Path(TEMP_DOWNLOAD_DIRECTORY)
+            path.mkdir(parents=True, exist_ok=True)
+            return path
+        except Exception:
+            fallback = Path("/tmp/fizilion_downloads/")
+            fallback.mkdir(parents=True, exist_ok=True)
+            return fallback
+    
+    async def resolve_user(self, event) -> Optional[UserInfo]:
+        arg = self._extract_argument(event)
+        if event.reply_to_msg_id and not arg:
+            return await self._resolve_from_reply(event)
+        if self._has_mention_entity(event):
+            return await self._resolve_from_mention(event)
+        return await self._resolve_from_argument(event, arg)
+    
+    def _extract_argument(self, event) -> Optional[str]:
+        if event.pattern_match and event.pattern_match.group(1):
+            return event.pattern_match.group(1).strip()
+        return None
+    
+    def _has_mention_entity(self, event) -> bool:
+        return (event.message and 
+                event.message.entities and 
+                isinstance(event.message.entities[0], MessageEntityMentionName))
+    
+    async def _resolve_from_reply(self, event) -> Optional[UserInfo]:
+        try:
+            msg = await event.get_reply_message()
+            if not msg or not hasattr(msg, "from_id") or not msg.from_id:
+                await event.edit("`Reply message doesn't contain user information.`")
+                return None
+            
+            entity = await event.client.get_entity(msg.from_id)
+            if not isinstance(entity, User):
+                await event.edit("`This command only works with users.`")
+                return None
+                
+            full_info = await event.client(GetFullUserRequest(msg.from_id))
+            return UserInfo(entity, full_info)
+        except Exception:
+            await event.edit("`Could not resolve user from reply.`")
+        return None
+    
+    async def _resolve_from_mention(self, event) -> Optional[UserInfo]:
+        try:
+            mention = event.message.entities[0]
+            entity = await event.client.get_entity(mention.user_id)
+            if not isinstance(entity, User):
+                await event.edit("`This command only works with users.`")
+                return None
+                
+            full_info = await event.client(GetFullUserRequest(mention.user_id))
+            return UserInfo(entity, full_info)
+        except Exception:
+            await event.edit("`Could not resolve mentioned user.`")
+        return None
+    
+    async def _resolve_from_argument(self, event, arg: Optional[str]) -> Optional[UserInfo]:
+        try:
+            target = int(arg) if arg and arg.lstrip('-').isnumeric() else arg
+            entity = await event.client.get_entity(target) if target else await event.client.get_me()
+            
+            if not isinstance(entity, User):
+                await event.edit("`This command only works with users.`")
+                return None
+            
+            full_info = await event.client(GetFullUserRequest(entity.id))
+            return UserInfo(entity, full_info)
+        except (UsernameNotOccupiedError, ValueError, TypeError, 
+                UserIdInvalidError, PeerIdInvalidError):
+            await event.edit("`Could not find that user.`")
+        except Exception as e:
+            await event.edit(f"`Unexpected error: {str(e)}`")
+        return None
+    
+    def _create_permalink(self, entity_id: int, text: str = "link") -> str:
+        return f'<a href="tg://user?id={entity_id}">{html.escape(str(text))}</a>'
+    
+    async def _download_profile_photo(self, event, entity) -> Optional[str]:
+        try:
+            file_id = getattr(entity, 'id', 'unknown')
+            photo_path = self.temp_dir / f"profile_{file_id}.jpg"
+            downloaded_path = await event.client.download_profile_photo(
+                entity, 
+                file=str(photo_path),
+                download_big=True
+            )
+            return downloaded_path if downloaded_path and os.path.exists(downloaded_path) else None
+        except Exception:
             return None
+    
+    async def format_user_info(self, event, info: UserInfo) -> Tuple[Optional[str], str]:
+        user = info.entity
+        full = info.full_info
+        first_name = (user.first_name or "None").replace("\u2060", "")
+        last_name = user.last_name or None
+        username = f"@{user.username}" if user.username else "None"
+        about = (getattr(full, "about", None) or 
+                getattr(getattr(full, "full_user", None), "about", None))
+        
+        text_parts = [
+            "<b>User Info:</b>",
+            f"<b>ID:</b> <code>{user.id}</code>",
+            f"<b>First Name:</b> {self._create_permalink(user.id, first_name)}",
+        ]
+        
+        if last_name:
+            text_parts.append(f"<b>Last Name:</b> {html.escape(last_name)}")
+        
+        text_parts.extend([
+            f"<b>Username:</b> <code>{html.escape(username)}</code>",
+            f"<b>Permalink:</b> {self._create_permalink(user.id)}",
+        ])
+        
+        if about:
+            text_parts.append(f"<b>About:</b> <code>{html.escape(about)}</code>")
+        
+        flags = self._get_user_flags(user)
+        if flags:
+            text_parts.extend(flags)
+        
+        photo = await self._download_profile_photo(event, user)
+        return photo, "\n".join(text_parts)
+    
+    def _get_user_flags(self, user: User) -> list:
+        flags = []
+        flag_mapping = {
+            "verified": "Verified",
+            "premium": "Premium", 
+            "bot": "Bot",
+            "scam": "Scam",
+            "fake": "Fake",
+            "restricted": "Restricted"
+        }
+        for attr, label in flag_mapping.items():
+            if getattr(user, attr, None):
+                flags.append(f"<b>{label}:</b> <code>True</code>")
+        return flags
+    
+    async def send_info_response(self, event, photo: Optional[str], text: str):
+        if photo and os.path.exists(photo):
+            try:
+                await event.client.send_file(
+                    event.chat_id,
+                    file=photo,
+                    caption=text,
+                    parse_mode="html",
+                    force_document=False,
+                    link_preview=False,
+                )
+                await event.delete()
+                return
+            except Exception:
+                pass
+            finally:
+                try:
+                    os.unlink(photo)
+                except Exception:
+                    pass
+        await event.edit(text, parse_mode="html", link_preview=False)
 
-    return replied_user
+
+info_handler = InfoHandler()
 
 
-async def fetch_info(replied_user, event):
-    """ Get details from the User object. """
-    replied_user_profile_photos = await event.client(
-        GetUserPhotosRequest(
-            user_id=replied_user.user.id, offset=42, max_id=0, limit=80
-        )
-    )
-    replied_user_profile_photos_count = (
-        "Person needs help with uploading profile picture."
-    )
+@register(pattern=f"^{trgg}info(?: |$)(.*)", outgoing=True)
+async def info_command(event):
+    await event.edit("`Sit tight while I steal some data from *Global Network Zone*...`")
     try:
-        replied_user_profile_photos_count = replied_user_profile_photos.count
-    except AttributeError:
-        pass
-    user_id = replied_user.user.id
-    first_name = replied_user.user.first_name
-    last_name = replied_user.user.last_name
-    try:
-        dc_id, location = get_input_location(replied_user.profile_photo)
+        user_info = await info_handler.resolve_user(event)
+        if not user_info:
+            return
+        
+        photo, text = await info_handler.format_user_info(event, user_info)
+        await info_handler.send_info_response(event, photo, text)
+    except FloodWaitError as e:
+        await event.edit(f"`Rate limit reached. Wait {e.seconds} seconds.`")
     except Exception as e:
-        dc_id = "Couldn't fetch DC ID!"
-        str(e)
-    common_chat = replied_user.common_chats_count
-    username = replied_user.user.username
-    user_bio = replied_user.about
-    is_bot = replied_user.user.bot
-    restricted = replied_user.user.restricted
-    verified = replied_user.user.verified
-    photo = await event.client.download_profile_photo(
-        user_id, TEMP_DOWNLOAD_DIRECTORY + str(user_id) + ".png", download_big=True
-    )
-    first_name = (
-        first_name.replace("\u2060", "")
-        if first_name
-        else ("This User has no First Name")
-    )
-    last_name = (
-        last_name.replace("\u2060", "") if last_name else ("This User has no Last Name")
-    )
-    username = "@{}".format(username) if username else ("This User has no Username")
-    user_bio = "This User has no About" if not user_bio else user_bio
-
-    caption = "<b>USER INFO:</b>\n\n"
-    caption += f"First Name: {first_name}\n"
-    caption += f"Last Name: {last_name}\n"
-    caption += f"Username: {username}\n"
-    caption += f"Data Centre ID: {dc_id}\n"
-    caption += f"Number of Profile Pics: {replied_user_profile_photos_count}\n"
-    caption += f"Is Bot: {is_bot}\n"
-    caption += f"Is Restricted: {restricted}\n"
-    caption += f"Is Verified by Telegram: {verified}\n"
-    caption += f"ID: <code>{user_id}</code>\n\n"
-    caption += f"Bio: \n<code>{user_bio}</code>\n\n"
-    caption += f"Common Chats with this user: {common_chat}\n"
-    caption += f"Permanent Link To Profile: "
-    caption += f'<a href="tg://user?id={user_id}">{first_name}</a>'
-
-    return photo, caption
-
+        await event.edit(f"`Error getting user information: {str(e)}`")
 
 CMD_HELP.update(
     {
-        "info": ".info <username> or reply to someones text with .info\
-    \nUsage: Gets info of an user."
+        "info": (
+            ".info <username,user_id> or reply to someone's text with .info"
+            "\nUsage: Gets info of an user."
+        )
     }
 )
